@@ -6,7 +6,7 @@ You can post messages to Fediverse like Incoming WebHook in Slack with the comma
 
 ## Configuration
 
-APubHook works on [Cloudflare Workers](https://workers.cloudflare.com/); use [Wrangler]() to configure and deploy.
+APubHook works on [Cloudflare Workers](https://workers.cloudflare.com/); use [Wrangler](https://developers.cloudflare.com/workers/wrangler/) to configure and deploy.
 
 ```
 cp wrangler.sample.toml wrangler.toml
