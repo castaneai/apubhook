@@ -1,5 +1,6 @@
 name = "apubhook"
 compatibility_date = "2023-01-01"
+main = "src/index.ts"
 
 [site]
 bucket = "./public"

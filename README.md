@@ -1,16 +1,21 @@
 # APubHook
 
-Incoming Webhook-like server implementation for ActivityPub.
+Incoming WebHook-like server for ActivityPub.
+
+You can post messages to Fediverse like Incoming WebHook in Slack with the command `curl -X POST -d '{"text": "hello"}' ...` 
 
 ## Configuration
 
+APubHook works on [Cloudflare Workers](https://workers.cloudflare.com/); use [Wrangler]() to configure and deploy.
+
 ```
 cp wrangler.sample.toml wrangler.toml
+pnpm install
 ```
 
 Fill the values:
 
-* `preferredUsername` - Your account name. eg. `testbot`
+* `preferredUsername` - Your account name on Fediverse. eg. `testbot`
 * `name` - Your long name. eg. `Test BOT`
 * `HOOK_PATH` - Secret string like Slack-incoming WebHook URL parameter
 
@@ -29,12 +34,6 @@ pnpm wrangler d1 create apubhook
 pnpm wrangler d1 execute apubhook --file db.sql
 ```
 
-## Development
-
-```
-pnpm run dev
-```
-
 ## Deploy
 
 ```
@@ -43,11 +42,18 @@ pnpm run deploy
 
 ## Usage
 
+You can follow a account: `${preferredUserName}@apubhook.<USERNAME>.workers.dev` on Fediverse (Alternatively, you could use a custom domain for Workers).
+
+And you can post messages with HTTP POST request with JSON payload to `/hooks/${HOOK_PATH}`.
+
 ```sh
-# Sending 'hello' to APubHook
-curl -X POST -d '{"text": "hello"}' "https://<APPNAME>.<USERNAME>.workers.dev/hooks/${HOOK_PATH}"
+# Sending 'hello' to Fediverse!
+curl -X POST -d '{"text": "hello"}' "https://apubhook.<USERNAME>.workers.dev/hooks/${HOOK_PATH}"
 ```
 
+You can see the post on Fediverse!
+
+![](./example.webp)
 
 
 ## License
