@@ -1,0 +1,19 @@
+name = "apubhook"
+compatibility_date = "2023-01-01"
+
+[site]
+bucket = "./public"
+
+[[ d1_databases ]]
+binding = "DB"
+database_name = "apubhook"
+database_id = ""
+
+[vars]
+preferredUsername = ""
+name = ""
+HOOK_PATH = "test-hook"
+PRIVATE_KEY = """-----BEGIN PRIVATE KEY-----
+
+-----END PRIVATE KEY-----
+"""
