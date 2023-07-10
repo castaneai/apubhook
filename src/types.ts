@@ -1,18 +1,26 @@
+import { UrlString } from "./apub/common"
+
 export type Env = {
   Bindings: {
     DB: D1Database
-    preferredUsername: string
-    name: string
     PRIVATE_KEY: string
-    HOOK_PATH: string
   }
 }
 
-export type Follower = {
-  id: string
+export type APubHookAccount = {
+  username: string
+  displayName: string
+  secretHookPath: string
+  iconUrl: string
+  iconMime: string
 }
 
-export type Message = {
+export type Follower = {
+  follower: UrlString
+}
+
+export type Post = {
   id: string
   body: string
+  createdAt: Date
 }

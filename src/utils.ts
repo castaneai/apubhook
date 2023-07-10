@@ -1,3 +1,30 @@
+import { Context } from 'hono'
+import { APubHookAccount, Env } from './types'
+import { ServerInfo } from './apub/common'
+import { Actor, getActorUrl } from './apub/actor'
+
+export function accountToActor(server: ServerInfo, account: APubHookAccount): Actor {
+  const actorUrl = getActorUrl(server, account.username)
+  return {
+    preferredUsername: account.username,
+    inbox: `${actorUrl}/inbox`
+  }
+}
+
+export async function getServerInfo(c: Context<Env>): Promise<ServerInfo> {
+  const host = new URL(c.req.url).hostname
+  const publicKeyPem = await getPublicKeyPem(c.env.PRIVATE_KEY)
+  return {
+    host, publicKeyPem,
+  }
+}
+
+export async function getPublicKeyPem(privateKeyPem: string) {
+  const privateKey = await importPrivateKey(privateKeyPem)
+  const publicKey = await privateKeyToPublicKey(privateKey)
+  return exportPublicKey(publicKey)
+}
+
 export function stob(s: string) {
   return Uint8Array.from(s, (c) => c.charCodeAt(0))
 }
@@ -6,7 +33,7 @@ export function btos(b: ArrayBuffer) {
   return String.fromCharCode(...new Uint8Array(b))
 }
 
-export async function importprivateKey(pem: string) {
+export async function importPrivateKey(pem: string) {
   const pemHeader = '-----BEGIN PRIVATE KEY-----'
   const pemFooter = '-----END PRIVATE KEY-----'
   if (pem.startsWith('"')) pem = pem.slice(1)

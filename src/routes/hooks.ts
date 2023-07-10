@@ -1,44 +1,43 @@
 import { Hono } from 'hono'
-import { importprivateKey } from '../utils'
+import { accountToActor, getServerInfo, importPrivateKey } from '../utils'
 import { Env } from '../types'
-import { getInbox, createNote } from '../logic'
 import { z } from 'zod'
 import { zValidator } from '@hono/zod-validator'
+import { getD1Database } from '../db'
+import { fetchRemoteActor, getActorUrl } from '../apub/actor'
+import { createNote } from '../apub/note'
 
 const app = new Hono<Env>()
 
 const requestSchema = z.object({
-    text: z.string()
+    text: z.string().nonempty()
 })
 
 app.post(
-    '/:hookPath',
+    '/:secretHookPath',
     zValidator('json', requestSchema),
     async (c) => {
-        const hookPath = c.req.param('hookPath')
-        if (hookPath !== c.env.HOOK_PATH) return c.json({error: "invalid request"}, 400)
+        const hookPath = c.req.param('secretHookPath')
+        const payload = c.req.valid('json')
 
-        const message = c.req.valid('json')
-        const messageId = crypto.randomUUID()
+        const db = getD1Database(c)
+        const account = await db.getAccountBySecretHookPath(hookPath)
+        if (!account) return c.notFound()
 
-        const strHost = new URL(c.req.url).hostname
-        const strName = c.env.preferredUsername
+        const server = await getServerInfo(c)
+        const accountActor = accountToActor(server, account)
+        const privateKey = await importPrivateKey(c.env.PRIVATE_KEY)
+        const postId = crypto.randomUUID()
 
-        const PRIVATE_KEY = await importprivateKey(c.env.PRIVATE_KEY)
-
-        const { results } = await c.env.DB.prepare(`SELECT id FROM follower;`).all<{ id: string }>()
-        const followers = results
-
+        const followers = await db.getFollowers(account.username)
+        console.log(`${account.username} posting ${JSON.stringify(payload)} to ${followers.length} followers`)
         for (const follower of followers) {
-            const x = await getInbox(follower.id)
-            await createNote(messageId, strName, strHost, x, message.text, PRIVATE_KEY)
+            const followerActor = await fetchRemoteActor(follower.follower)
+            await createNote(postId, server, accountActor, followerActor.inbox, payload.text, privateKey)
         }
-
-        await c.env.DB.prepare(`INSERT INTO message(id, body) VALUES(?, ?);`)
-            .bind(messageId, message.text)
-            .run()
-
-        return c.text('OK')
+        await db.createPost(postId, account.username, payload.text)
+        const actorBaseUrl = getActorUrl(server, account.username)
+        return c.json({ "url": `${actorBaseUrl}/s/${postId}` })
     }
 )
 

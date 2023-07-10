@@ -1,19 +1,34 @@
 import { Hono } from 'hono'
-import { Env } from 'hono'
+import { getActorUrl } from '../apub/actor'
+import { getServerInfo } from '../utils'
+import { Env } from '../types'
+import { getD1Database } from '../db'
 
 const app = new Hono<Env>()
 
-app.get('/', (c) => {
-  const strName = c.env.preferredUsername
-  const strHost = new URL(c.req.url).hostname
-  if (c.req.query('resource') !== `acct:${strName}@${strHost}`) return c.notFound()
+app.get('/', async (c) => {
+  const resource = c.req.query('resource')
+  const m = resource.match(/acct:(?<username>[^\@]+)\@(?<host>.+)/)
+  if (!m) return c.notFound();
+
+  const username = m.groups['username']
+  const host = m.groups['host']
+
+  const server = await getServerInfo(c)
+  if (host !== server.host) return c.notFound();
+
+  const db = getD1Database(c)
+  const account = await db.getAccount(username)
+  if (!account || username !== account.username) return c.notFound()
+
+  const actorUrl = getActorUrl(server, username);
   const r = {
-    subject: `acct:${strName}@${strHost}`,
+    subject: resource,
     links: [
       {
         rel: 'self',
         type: 'application/activity+json',
-        href: `https://${strHost}/u/${strName}`,
+        href: actorUrl,
       },
     ],
   }

@@ -1,79 +1,57 @@
-/**
- * Based on Matchbox
- * Matchbox https://gitlab.com/acefed/matchbox Copyright (c) 2022 Acefed MIT License
- */
-
 import { Hono } from 'hono'
-import { Env, Follower } from '../types'
-import { exportPublicKey, importprivateKey, privateKeyToPublicKey } from '../utils'
-import { acceptFollow, getInbox } from '../logic'
+import { Env } from '../types'
+import { accountToActor, getServerInfo, importPrivateKey } from '../utils'
+import { actorJSON, followersJSON } from '../apub/actor'
+import { getD1Database } from '../db'
+import { InboxMessage, acceptFollow } from '../apub/follow'
 
 const app = new Hono<Env>()
 
-app.get(':strName', async (c) => {
-  const strName = c.req.param('strName')
-  const strHost = new URL(c.req.url).hostname
+app.get(':atusername', async (c) => {
+  const atUsername = c.req.param('atusername')
+  if (!atUsername.startsWith('@')) return c.notFound()
+  const username = atUsername.substring(1)
+  const server = await getServerInfo(c)
+  const db = getD1Database(c)
+  const account = await db.getAccount(username)
+  if (!account) return c.notFound()
 
-  if (strName !== c.env.preferredUsername) return c.notFound()
   if (!c.req.header('Accept').includes('application/activity+json')) {
-    return c.text(`${strName}: ${c.env.name}`)
+    return c.text(`${account.username}@${server.host}: ${account.displayName}`)
   }
 
-  const PRIVATE_KEY = await importprivateKey(c.env.PRIVATE_KEY)
-  const PUBLIC_KEY = await privateKeyToPublicKey(PRIVATE_KEY)
-  const public_key_pem = await exportPublicKey(PUBLIC_KEY)
-
-  const r = {
-    '@context': ['https://www.w3.org/ns/activitystreams', 'https://w3id.org/security/v1'],
-    id: `https://${strHost}/u/${strName}`,
-    type: 'Person',
-    inbox: `https://${strHost}/u/${strName}/inbox`,
-    followers: `https://${strHost}/u/${strName}/followers`,
-    preferredUsername: strName,
-    name: c.env.name,
-    url: `https://${strHost}/u/${strName}`,
-    publicKey: {
-      id: `https://${strHost}/u/${strName}`,
-      type: 'Key',
-      owner: `https://${strHost}/u/${strName}`,
-      publicKeyPem: public_key_pem,
-    },
-    icon: {
-      type: 'Image',
-      mediaType: 'image/png',
-      url: `https://${strHost}/static/icon.png`,
-    },
-  }
-
-  return c.json(r, 200, { 'Content-Type': 'activity+json' })
+  const resp = actorJSON(server, account)
+  return c.json(resp, 200, { 'Content-Type': 'activity+json' })
 })
 
-app.get(':strName/inbox', (c) => c.body(null, 405))
-app.post(':strName/inbox', async (c) => {
-  const strName = c.req.param('strName')
-  const strHost = new URL(c.req.url).hostname
+app.get(':atusername/inbox', (c) => c.body(null, 405))
+app.post(':atusername/inbox', async (c) => {
+  const atUsername = c.req.param('atusername')
+  if (!atUsername.startsWith('@')) return c.notFound()
+  const username = atUsername.substring(1)
+  const db = getD1Database(c)
 
-  if (strName !== c.env.preferredUsername) return c.notFound()
   if (!c.req.header('Content-Type').includes('application/activity+json')) return c.body(null, 400)
-  const y = await c.req.json<any>()
-  if (new URL(y.actor).protocol !== 'https:') return c.body(null, 400)
+  const message = await c.req.json<InboxMessage>()
 
-  const x = await getInbox(y.actor)
-  if (!x) return c.body(null, 500)
+  if (message.type === 'Follow') {
+    const followee = await db.getAccount(username)
+    if (!followee) return c.body(null, 404)
 
-  const private_key = await importprivateKey(c.env.PRIVATE_KEY)
-
-  if (y.type === 'Follow') {
-    const actor = y.actor
-    await c.env.DB.prepare(`INSERT OR REPLACE INTO follower(id) VALUES(?);`).bind(actor).run()
-    await acceptFollow(strName, strHost, x, y, private_key)
+    const server = await getServerInfo(c)
+    const privateKey = await importPrivateKey(c.env.PRIVATE_KEY)
+    await acceptFollow(message, accountToActor(server, followee), server, privateKey)
+    await db.acceptFollow(message.actor, username)
     return c.body(null)
   }
 
-  if (y.type === 'Undo') {
-    const z = y.object
-    if (z.type === 'Follow') {
-      await c.env.DB.prepare(`DELETE FROM follower WHERE id = ?;`).bind(y.actor).run()
+  if (message.type === 'Undo') {
+    const undoTarget = message.object
+    if (undoTarget.type === 'Follow') {
+      const followee = await db.getAccount(username)
+      if (!followee) return c.body(null, 404)
+
+      await db.removeFollow(message.actor, username)
       return c.body(null)
     }
   }
@@ -81,33 +59,35 @@ app.post(':strName/inbox', async (c) => {
   return c.body(null, 500)
 })
 
-app.get(':strName/followers', async (c) => {
-  const strName = c.req.param('strName')
-  const strHost = new URL(c.req.url).hostname
-  if (strName !== c.env.preferredUsername) return c.notFound()
+app.get(':atusername/followers', async (c) => {
+  const atUsername = c.req.param('atusername')
+  if (!atUsername.startsWith('@')) return c.notFound()
+  const username = atUsername.substring(1)
+  const db = getD1Database(c)
+
   if (!c.req.header('Accept').includes('application/activity+json')) return c.body(null, 400)
 
-  const { results } = await c.env.DB.prepare(`SELECT * FROM follower;`).all<Follower>()
-  const followers = results
+  const followers = await db.getFollowers(username)
+  const followerUrls = followers.map(f => f.follower)
 
-  const items = followers.map(({ id }) => {
-    return id
-  })
+  const server = await getServerInfo(c)
+  const resp = followersJSON(server, username, followerUrls)
+  return c.json(resp, 200, { 'Content-Type': 'activity+json' })
+})
 
-  const r = {
-    '@context': 'https://www.w3.org/ns/activitystreams',
-    id: `https://${strHost}/u/${strName}/followers`,
-    type: 'OrderedCollection',
-    first: {
-      type: 'OrderedCollectionPage',
-      totalItems: followers.length,
-      partOf: `https://${strHost}/u/${strName}/followers`,
-      orderedItems: items,
-      id: `https://${strHost}/u/${strName}/followers?page=1`,
-    },
-  }
+app.get(':atusername/s/:postId', async (c) => {
+  const atUsername = c.req.param('atusername')
+  if (!atUsername.startsWith('@')) return c.notFound()
+  const username = atUsername.substring(1)
+  const db = getD1Database(c)
+  const account = await db.getAccount(username)
+  if (!account) return c.notFound()
 
-  return c.json(r, 200, { 'Content-Type': 'activity+json' })
+  const postId = c.req.param('postId')
+  const post = await db.getPost(postId)
+  if (!post) return c.notFound()
+
+  return c.json(post)
 })
 
 export default app

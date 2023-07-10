@@ -13,7 +13,7 @@ app.get('/static/*', serveStatic({ root: './' }))
 
 app.get('/', (c) => c.text('apubhook'))
 app.route('/.well-known/webfinger', webfinger)
-app.route('/u', user)
+app.route('/', user)
 app.route('/hooks', hooks)
 
 app.showRoutes()
