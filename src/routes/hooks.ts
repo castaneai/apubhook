@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { importprivateKey } from '../utils'
+import { importPrivateKey } from '../utils'
 import { Env } from '../types'
 import { getInbox, createNote } from '../logic'
 import { z } from 'zod'
@@ -24,7 +24,7 @@ app.post(
         const strHost = new URL(c.req.url).hostname
         const strName = c.env.preferredUsername
 
-        const PRIVATE_KEY = await importprivateKey(c.env.PRIVATE_KEY)
+        const PRIVATE_KEY = await importPrivateKey(c.env.PRIVATE_KEY)
 
         const { results } = await c.env.DB.prepare(`SELECT id FROM follower;`).all<{ id: string }>()
         const followers = results

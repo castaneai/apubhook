@@ -42,7 +42,11 @@ pnpm run deploy
 
 ## Usage
 
-You can follow a account: `${preferredUserName}@apubhook.<USERNAME>.workers.dev` on Fediverse (Alternatively, you could use a custom domain for Workers).
+```sh
+pnpm wrangler d1 execute apubhook --command "insert or replace into accounts(username, displayName, secretHookPath, iconUrl, iconMime) VALUES('testbot', 'Test BOT', 'secret-path-example', 'https://i.pravatar.cc/150?img=3', 'image/jpeg')"
+```
+
+You can follow a account: `@testbot@apubhook.<USERNAME>.workers.dev` on Fediverse (Alternatively, you could use a custom domain for Workers).
 
 And you can post messages with HTTP POST request with JSON payload to `/hooks/${HOOK_PATH}`.
 
