@@ -1,12 +1,7 @@
-/**
- * Based on Matchbox
- * Matchbox https://gitlab.com/acefed/matchbox Copyright (c) 2022 Acefed MIT License
- */
-
 import { Hono } from 'hono'
-import { APubHookAccount, Env, Follower } from '../types'
+import { Env } from '../types'
 import { accountToActor, getServerInfo, importPrivateKey } from '../utils'
-import { actorJSON } from '../apub/actor'
+import { actorJSON, followersJSON } from '../apub/actor'
 import { getD1Database } from '../db'
 import { InboxMessage, acceptFollow } from '../apub/follow'
 import { UrlString } from '../apub/common'
@@ -42,7 +37,7 @@ app.post(':atusername/inbox', async (c) => {
 
   if (message.type === 'Follow') {
     const followee = await db.getAccount(username)
-    if (!followee) return c.body(null, 400)
+    if (!followee) return c.body(null, 404)
 
     const server = await getServerInfo(c)
     const privateKey = await importPrivateKey(c.env.PRIVATE_KEY)
@@ -51,10 +46,13 @@ app.post(':atusername/inbox', async (c) => {
     return c.body(null)
   }
 
-  if (y.type === 'Undo') {
-    const z = y.object
-    if (z.type === 'Follow') {
-      await c.env.DB.prepare(`DELETE FROM follower WHERE id = ?;`).bind(y.actor).run()
+  if (message.type === 'Undo') {
+    const undoTarget = message.object
+    if (undoTarget.type === 'Follow') {
+      const followee = await db.getAccount(username)
+      if (!followee) return c.body(null, 404)
+
+      await db.removeFollow(message.actor, username)
       return c.body(null)
     }
   }
@@ -66,33 +64,20 @@ function extractUsernameFromUrl(url: UrlString): string {
   return (new URL(url).pathname).substring(1)
 }
 
-app.get(':strName/followers', async (c) => {
-  const strName = c.req.param('strName')
-  const strHost = new URL(c.req.url).hostname
-  if (strName !== c.env.preferredUsername) return c.notFound()
+app.get(':atusername/followers', async (c) => {
+  const atUsername = c.req.param('atusername')
+  if (!atUsername.startsWith('@')) return c.notFound()
+  const username = atUsername.substring(1)
+  const db = getD1Database(c)
+
   if (!c.req.header('Accept').includes('application/activity+json')) return c.body(null, 400)
 
-  const { results } = await c.env.DB.prepare(`SELECT * FROM follower;`).all<Follower>()
-  const followers = results
+  const followers = await db.getFollowers(username)
+  const followerUrls = followers.map(f => f.follower)
 
-  const items = followers.map(({ id }) => {
-    return id
-  })
-
-  const r = {
-    '@context': 'https://www.w3.org/ns/activitystreams',
-    id: `https://${strHost}/u/${strName}/followers`,
-    type: 'OrderedCollection',
-    first: {
-      type: 'OrderedCollectionPage',
-      totalItems: followers.length,
-      partOf: `https://${strHost}/u/${strName}/followers`,
-      orderedItems: items,
-      id: `https://${strHost}/u/${strName}/followers?page=1`,
-    },
-  }
-
-  return c.json(r, 200, { 'Content-Type': 'activity+json' })
+  const server = await getServerInfo(c)
+  const resp = followersJSON(server, username, followerUrls)
+  return c.json(resp, 200, { 'Content-Type': 'activity+json' })
 })
 
 export default app

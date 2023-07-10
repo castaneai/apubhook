@@ -6,6 +6,7 @@ export interface IDatabase {
     getAccount(username: string): Promise<APubHookAccount>
     getFollowers(username: string): Promise<Follower[]>
     acceptFollow(followerUrl: UrlString, followeeUsername: string): Promise<void>
+    removeFollow(followerUrl: UrlString, followeeUsername: string): Promise<void>
 }
 
 export class CloudflareD1Database implements IDatabase
@@ -32,6 +33,12 @@ export class CloudflareD1Database implements IDatabase
     async acceptFollow(followerUrl: UrlString, followeeUsername: string): Promise<void> {
         await this.d1.prepare('INSERT OR REPLACE INTO followers(follower, followee) VALUES(?, ?)')
             .bind(followerUrl, followeeUsername)
+            .run()
+    }
+
+    async removeFollow(followerUrl: string, followeeUsername: string): Promise<void> {
+        await this.d1.prepare('DELETE FROM followers WHERE followee = ? AND follower = ?')
+            .bind(followeeUsername, followerUrl)
             .run()
     }
 }

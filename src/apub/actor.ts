@@ -49,3 +49,19 @@ export async function fetchRemoteActor(req: string): Promise<Actor> {
   })
   return await res.json() as Actor
 }
+
+export function followersJSON(server: ServerInfo, username: string, followerUrls: string[]) {
+    const baseUrl = getActorUrl(server, username);
+    return {
+    '@context': 'https://www.w3.org/ns/activitystreams',
+    id: `${baseUrl}/followers`,
+    type: 'OrderedCollection',
+    first: {
+      type: 'OrderedCollectionPage',
+      totalItems: followerUrls.length,
+      partOf: `${baseUrl}/followers`,
+      orderedItems: followerUrls,
+      id: `${baseUrl}/followers?page=1`,
+    },
+  }
+}

@@ -7,9 +7,9 @@ CREATE TABLE accounts (
 );
 
 CREATE TABLE followers (
-  follower TEXT NOT NULL,
   followee TEXT NOT NULL,
-  UNIQUE(follower, followee) ON CONFLICT REPLACE
+  follower TEXT NOT NULL,
+  UNIQUE(followee, follower) ON CONFLICT REPLACE
 );
 
 CREATE TABLE posts (

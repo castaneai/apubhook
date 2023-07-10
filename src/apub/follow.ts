@@ -15,6 +15,7 @@ export type FollowRequest = {
 export type UndoRequest = {
     type: 'Undo'
     actor: UrlString
+    object: InboxMessage
 }
 
 export async function acceptFollow(
@@ -32,6 +33,6 @@ export async function acceptFollow(
         actor: myUrl,
         object: followRequest,
     }
-    const headers = await signHeaders(res, server, followee, privateKey)
+    const headers = await signHeaders(res, server, followee, follower.inbox, privateKey)
     await postToRemoteInbox(follower.inbox, res, headers)
 }

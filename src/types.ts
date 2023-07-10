@@ -1,3 +1,5 @@
+import { UrlString } from "./apub/common"
+
 export type Env = {
   Bindings: {
     DB: D1Database
@@ -14,7 +16,7 @@ export type APubHookAccount = {
 }
 
 export type Follower = {
-  id: string
+  follower: UrlString
 }
 
 export type Message = {

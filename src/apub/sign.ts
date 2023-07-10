@@ -1,11 +1,12 @@
 import { btos, stob } from "../utils"
 import { Actor, getActorUrl } from "./actor"
-import { ServerInfo } from "./common"
+import { ServerInfo, UrlString } from "./common"
 
 export async function signHeaders(
     res: any,
     server: ServerInfo,
     actor: Actor,
+    targetInboxUrl: UrlString,
     privateKey: CryptoKey
   ) {
     const strTime = new Date().toUTCString()
@@ -15,15 +16,15 @@ export async function signHeaders(
       'RSASSA-PKCS1-v1_5',
       privateKey,
       stob(
-        `(request-target): post ${new URL(actor.inbox).pathname}\n` +
-          `host: ${new URL(actor.inbox).hostname}\n` +
+        `(request-target): post ${new URL(targetInboxUrl).pathname}\n` +
+          `host: ${new URL(targetInboxUrl).hostname}\n` +
           `date: ${strTime}\n` +
           `digest: SHA-256=${s256}`
       )
     )
     const b64 = btoa(btos(sig))
     const headers = {
-      Host: new URL(actor.inbox).hostname,
+      Host: new URL(targetInboxUrl).hostname,
       Date: strTime,
       Digest: `SHA-256=${s256}`,
       Signature:
