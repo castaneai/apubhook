@@ -47,7 +47,7 @@ app.post(':atusername/inbox', async (c) => {
     const server = await getServerInfo(c)
     const privateKey = await importPrivateKey(c.env.PRIVATE_KEY)
     await acceptFollow(message, accountToActor(server, followee), server, privateKey)
-    await db.acceptFollow(message.object, message.actor)
+    await db.acceptFollow(message.actor, username)
     return c.body(null)
   }
 

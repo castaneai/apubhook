@@ -1,10 +1,11 @@
 import { Context } from "hono";
 import { APubHookAccount, Env, Follower } from "./types";
+import { UrlString } from "./apub/common";
 
 export interface IDatabase {
     getAccount(username: string): Promise<APubHookAccount>
     getFollowers(username: string): Promise<Follower[]>
-    acceptFollow(followeeActor: string, followerActor: string): Promise<void>
+    acceptFollow(followerUrl: UrlString, followeeUsername: string): Promise<void>
 }
 
 export class CloudflareD1Database implements IDatabase
@@ -22,15 +23,15 @@ export class CloudflareD1Database implements IDatabase
     }
 
     async getFollowers(username: string): Promise<Follower[]> {
-        const { results } = await this.d1.prepare('SELECT * FROM followers WHERE followeeActorId = ?')
+        const { results } = await this.d1.prepare('SELECT * FROM followers WHERE followee = ?')
             .bind(username)
             .all<Follower>()
         return results
     }
 
-    async acceptFollow(followeeActor: string, followerActor: string): Promise<void> {
-        await this.d1.prepare('INSERT OR REPLACE INTO followers(id, followeeActorId) VALUES(?, ?)')
-            .bind(followerActor, followeeActor)
+    async acceptFollow(followerUrl: UrlString, followeeUsername: string): Promise<void> {
+        await this.d1.prepare('INSERT OR REPLACE INTO followers(follower, followee) VALUES(?, ?)')
+            .bind(followerUrl, followeeUsername)
             .run()
     }
 }
