@@ -19,7 +19,8 @@ export type Follower = {
   follower: UrlString
 }
 
-export type Message = {
+export type Post = {
   id: string
   body: string
+  createdAt: Date
 }

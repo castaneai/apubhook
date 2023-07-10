@@ -5,6 +5,7 @@ CREATE TABLE accounts (
   iconUrl TEXT,
   iconMime TEXT
 );
+CREATE INDEX accountsSecretHookPath ON accounts(secretHookPath);
 
 CREATE TABLE followers (
   followee TEXT NOT NULL,
@@ -14,6 +15,8 @@ CREATE TABLE followers (
 
 CREATE TABLE posts (
   id TEXT PRIMARY KEY,
-  authorId TEXT,
-  body TEXT
+  authorUsername TEXT NOT NULL,
+  body TEXT NOT NULL,
+  createdAt DATE NOT NULL
 );
+CREATE INDEX postsAuthor ON posts(authorUsername);
